@@ -1,7 +1,6 @@
 import java.io.File
 
 fun main() {
-    // listOf("10|11", "12|10", "10,11,12", "12, 10, 11")
     val lines = File("data.txt").readLines()
     val forwardConstraints: Map<String, Set<String>> = readConstraints(lines)
     val backwardConstraints: Map<String, Set<String>> = readConstraints(lines, false)
