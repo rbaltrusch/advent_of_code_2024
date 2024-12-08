@@ -2,19 +2,17 @@ import java.io.File
 
 fun main() {
     val lines = File("data.txt").readLines()
-    val forwardConstraints: Map<String, Set<String>> = readConstraints(lines)
-    val backwardConstraints: Map<String, Set<String>> = readConstraints(lines, false)
-    val updates: List<List<String>> = readUpdates(lines)
+    val forwardInvalidator = getConstraintValidator(readConstraints(lines))
+    val backwardInvalidator = getConstraintValidator(readConstraints(lines, false))
+    val validator = getValidator(forwardInvalidator, backwardInvalidator)
+    val updates: List<List<String>> = readUpdates(lines) // an update is a list of pages to be printed
 
     // part 1: find updates matching constraints, then sum their middle pages
-    val forwardInvalidator = getConstraintValidator(forwardConstraints)
-    val backwardInvalidator = getConstraintValidator(backwardConstraints)
-    val validator = getValidator(forwardInvalidator, backwardInvalidator)
     val validUpdates = updates.filter(validator)
     val sumOfValidMiddlePages = validUpdates.map { it[it.size / 2] }.map(String::toInt).sumOf { it }
     println(sumOfValidMiddlePages)
 
-    // part 2: fix invalid updates to match constraints, then sum their new middle pages
+    // part 2: sort invalid updates to match constraints, then sum their new middle pages
     val fixedUpdates = updates.filter { !validUpdates.contains(it) }.map {
         var sorted = it
         while(true) {
