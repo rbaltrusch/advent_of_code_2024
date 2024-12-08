@@ -7,12 +7,10 @@ fun main() {
     val updates: List<List<String>> = readUpdates(lines)
 
     // part 1: find updates matching constraints, then sum their middle pages
-    val validUpdates = updates.filter{
-        it.mapIndexed { i, page ->
-            it.take(i).none { prev -> forwardConstraints.getOrDefault(page, setOf()).contains(prev) }
-            && it.drop(i + 1).none { next -> backwardConstraints.getOrDefault(page, setOf()).contains(next) }
-        }.all { x -> x }
-    }
+    val forwardInvalidator = getConstraintValidator(forwardConstraints)
+    val backwardInvalidator = getConstraintValidator(backwardConstraints)
+    val validator = getValidator(forwardInvalidator, backwardInvalidator)
+    val validUpdates = updates.filter(validator)
     val sumOfValidMiddlePages = validUpdates.map { it[it.size / 2] }.map(String::toInt).sumOf { it }
     println(sumOfValidMiddlePages)
 
@@ -22,24 +20,33 @@ fun main() {
         while(true) {
             for(i in 1..it.size) {
                 val page = sorted[i]
-                val invalidPrevs = sorted.take(i).filter { prev -> forwardConstraints.getOrDefault(page, setOf()).contains(prev) }
-                val validPrevs = sorted.take(i).filterNot(invalidPrevs::contains)
-                val invalidNexts = sorted.drop(i + 1).filter { next -> backwardConstraints.getOrDefault(page, setOf()).contains(next) }
-                val validNexts = sorted.drop(i + 1).filterNot(invalidNexts::contains)
+                val invalidPrevs = sorted.take(i).filter(forwardInvalidator(page))
+                val validPrevs = sorted.take(i).filterNot(forwardInvalidator(page))
+                val invalidNexts = sorted.drop(i + 1).filter(backwardInvalidator(page))
+                val validNexts = sorted.drop(i + 1).filterNot(backwardInvalidator(page))
                 if (invalidPrevs.isEmpty() && invalidNexts.isEmpty()) continue
                 sorted = validPrevs + invalidNexts + listOf(page) + invalidPrevs + validNexts
                 break
             }
-            val valid = sorted.mapIndexed { i, page ->
-                sorted.take(i).none { prev -> forwardConstraints.getOrDefault(page, setOf()).contains(prev) }
-                && sorted.drop(i + 1).none { next -> backwardConstraints.getOrDefault(page, setOf()).contains(next) }
-            }.all { x -> x }
+            val valid = validator(sorted)
             if (valid) break
         }
         sorted
     }
     val sumOfFixedMiddlePages = fixedUpdates.map { it[it.size / 2] }.map(String::toInt).sumOf { it }
     println(sumOfFixedMiddlePages)
+}
+
+typealias Predicate<T> = (T) -> Boolean
+typealias PageInvalidator = (String) -> Predicate<String>
+fun getConstraintValidator(constraints: Map<String, Set<String>>): PageInvalidator = {
+    page -> { constraints.getOrDefault(page, setOf()).contains(it) }
+}
+
+fun getValidator(forwardInvalidator: PageInvalidator, backwardInvalidator: PageInvalidator): Predicate<List<String>> = {
+    it.mapIndexed { i, page ->
+        it.take(i).none(forwardInvalidator(page)) && it.drop(i + 1).none(backwardInvalidator(page))
+    }.all { x -> x }
 }
 
 fun readConstraints(lines: List<String>, forward: Boolean = true): Map<String, Set<String>> {
