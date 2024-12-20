@@ -63,14 +63,57 @@ int calculateIndex(const Vector size, const Vector point)
 }
 
 /* Only adds point as new antinode if not already in list of antinodes */
-void addAntiNode(List* antiNodes, const Vector dimensions, const Vector point)
+void addAntiNodes(List* antiNodes, const Vector dimensions, const Vector point, const Vector diff, const int maxAntiNodes)
 {
-    if (!checkInBounds(dimensions, point)) return;
-
-    const int index = calculateIndex(dimensions, point);
-    if (!containsElement(antiNodes, index))
+    int counter = 0;
+    Vector newPoint = point;
+    while(counter < maxAntiNodes && checkInBounds(dimensions, newPoint))
     {
-        addToList(antiNodes, index);
+        const int index = calculateIndex(dimensions, newPoint);
+        if (!containsElement(antiNodes, index))
+        {
+            // since this is a List and not a Set, this workaround List usage
+            // results in O(n^2) time complexity
+            addToList(antiNodes, index);
+        }
+        newPoint = addVectors(newPoint, diff);
+        counter++;
+    }
+}
+
+List* determineAntiNodes(List** lists, Vector dims, const int maxAntiNodes)
+{
+    List* antiNodes = createNewList(); // HACK: should normally be a Set of antiNode points
+    for (int i = 0; i < ASCII_SIZE; i++)
+    {
+        List* list = lists[i];
+        const int size = list->size;
+        if (!size) continue;
+        for (int j = 0; j < size; j++)
+        {
+            Vector point1 = calculatePosition(dims, getElement(list, j)->value);
+            for (int k = j + 1; k < size; k++)
+            {
+                Vector point2 = calculatePosition(dims, getElement(list, k)->value);
+                Vector diff = calculateDistance(point1, point2);
+                addAntiNodes(antiNodes, dims, point1, flipVector(diff), maxAntiNodes);
+                addAntiNodes(antiNodes, dims, point2, diff, maxAntiNodes);
+            }
+        }
+    }
+    return antiNodes;
+}
+
+void printAntiNodeMap(List* antiNodes, Vector dims)
+{
+    for (int y = 0; y < dims.y; y++)
+    {
+        for (int x = 0; x < dims.x; x++)
+        {
+            char c = containsElement(antiNodes, calculateIndex(dims, (Vector){x, y})) ? 'X' : '.';
+            printf("%c", c);
+        }
+        printf("\n");
     }
 }
 
@@ -88,37 +131,18 @@ int main()
     Vector dims = readInput(lists, file);
     fclose(file);
 
-    List* antiNodes = createNewList(); // HACK: should normally be a Set of antiNode points
-    for (int i = 0; i < ASCII_SIZE; i++)
-    {
-        List* list = lists[i];
-        const int size = list->size;
-        if (!size) continue;
-        //printList(list);
-        for (int j = 0; j < size; j++)
-        {
-            Vector point1 = calculatePosition(dims, getElement(list, j)->value);
-            for (int k = j + 1; k < size; k++)
-            {
-                Vector point2 = calculatePosition(dims, getElement(list, k)->value);
-                Vector diff = calculateDistance(point1, point2);
-                Vector newPoint1 = addVectors(point1, flipVector(diff));
-                Vector newPoint2 = addVectors(point2, diff);
-                /*printf("---");
-                printVector(point1);
-                printVector(point2);
-                printVector(diff);
-                printVector(newPoint1);
-                printVector(newPoint2);*/
-                addAntiNode(antiNodes, dims, newPoint1);
-                addAntiNode(antiNodes, dims, newPoint2);
-                printf("antiNodes: %i\n", antiNodes->size);
-            }
-        }
-    }
-
-    freePositions(lists);
+    // part 1: only one anti-node in each direction
+    List* antiNodes = determineAntiNodes(lists, dims, 1);
+    printf("antiNodes: %i\n", antiNodes->size);
     deleteList(antiNodes);
+
+    // part 2: unlimited anti-nodes in each direction
+    antiNodes = determineAntiNodes(lists, dims, dims.x + dims.y);
+    printf("antiNodes: %i\n", antiNodes->size);
+    printAntiNodeMap(antiNodes, dims);
+
+    deleteList(antiNodes);
+    freePositions(lists);
     printf("done.\n");
     return 0;
 }
